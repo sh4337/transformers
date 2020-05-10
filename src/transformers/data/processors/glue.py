@@ -17,7 +17,8 @@
 
 import logging
 import os
-
+import sys
+import csv
 from ...file_utils import is_tf_available
 from .utils import DataProcessor, InputExample, InputFeatures
 
@@ -514,6 +515,49 @@ class WnliProcessor(DataProcessor):
             label = line[-1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
+    
+class emojiProcessor(DataProcessor):
+    def get_example_from_tensor_dict(self, tensor_dict):
+        """See base class."""
+        return InputExample(
+            tensor_dict["idx"].numpy(),
+            tensor_dict["passage"].numpy().decode("utf-8"),
+            None,
+            str(tensor_dict["label"].numpy()),
+    )
+
+    def _read_csv(cls, input_file, quotechar=None):
+        with open(input_file, "r") as f:
+            reader = csv.reader(f, quotechar=quotechar)
+            lines = []
+            for line in reader:
+                if sys.version_info[0] == 2:
+                    line = list(unicode(cell, 'utf-8') for cell in line)
+                lines.append(line)
+            return lines
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(self._read_csv(os.path.join(data_dir, "mini_train.csv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(self._read_csv(os.path.join(data_dir, "mini_val.csv")), "dev")
+
+    def get_labels(self):
+        """See base class."""
+        return [":smiling_face_with_smiling_eyes:", ":broken_heart:", ":face_with_tears_of_joy:", ":crying_face:", ":grinning_face_with_sweat:", ":red_heart:",":smiling_face_with_heart-eyes:",":rolling_on_the_floor_laughing:", ":blue_heart:", ":beaming_face_with_smiling_eyes:", ":two_hearts:",":sparkling_heart:", ":face_blowing_a_kiss:", ":fire:", ":folded_hands:", ":clapping_hands:", ":loudly_crying_face:", ":thinking_face:", ":heart_suit:", ":thumbs_up:"]
+    def _create_examples(self, lines, set_type):
+        """Creates examples for the training and dev sets."""
+        examples = []
+        for (i, line) in enumerate(lines):
+            if i == 0:
+                continue
+            guid = "%s-%s" % (set_type, i)
+            text_a = line[1]
+            label =line[0]
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=str(label)))
+        return examples
 
 
 glue_tasks_num_labels = {
@@ -526,6 +570,7 @@ glue_tasks_num_labels = {
     "qnli": 2,
     "rte": 2,
     "wnli": 2,
+    "emoji":20,
 }
 
 glue_processors = {
@@ -539,6 +584,7 @@ glue_processors = {
     "qnli": QnliProcessor,
     "rte": RteProcessor,
     "wnli": WnliProcessor,
+    "emoji":emojiProcessor,
 }
 
 glue_output_modes = {
@@ -552,4 +598,5 @@ glue_output_modes = {
     "qnli": "classification",
     "rte": "classification",
     "wnli": "classification",
+    "emoji":"classification",
 }
